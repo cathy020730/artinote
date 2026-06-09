@@ -763,16 +763,70 @@ function openNotify(){
 </script>
 
 
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 <script>
+/* ===== Google OAuth 설정 =====
+   아래 GOOGLE_CLIENT_ID에 구글 클라우드 콘솔에서 발급받은 클라이언트 ID를 입력하세요.
+   예: '123456789-abcdefg.apps.googleusercontent.com'
+   ============================= */
+var GOOGLE_CLIENT_ID = 'YOUR_GOOGLE_CLIENT_ID';
+
+function handleGoogleCredential(response){
+  try {
+    var base64Url = response.credential.split('.')[1];
+    var base64 = base64Url.replace(/-/g,'+').replace(/_/g,'/');
+    var jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c){
+      return '%'+('00'+c.charCodeAt(0).toString(16)).slice(-2);
+    }).join(''));
+    var payload = JSON.parse(jsonPayload);
+
+    var login = document.getElementById('artiLoginScreen');
+    if(login){
+      login.classList.add('hide');
+      setTimeout(function(){ login.style.display='none'; }, 280);
+    }
+
+    if(payload.name){
+      var profileName = document.getElementById('profileName');
+      if(profileName) profileName.textContent = payload.name;
+    }
+
+    localStorage.setItem('artiUser', JSON.stringify({
+      name: payload.name||'',
+      email: payload.email||'',
+      picture: payload.picture||''
+    }));
+
+    if(typeof toast === 'function') toast('구글 로그인 완료');
+  } catch(e){
+    if(typeof toast === 'function') toast('로그인 처리 중 오류가 발생했습니다');
+  }
+}
+
 function artiGoogleLogin(){
-  const login = document.getElementById('artiLoginScreen');
-  if(login){
-    login.classList.add('hide');
-    setTimeout(()=>{ login.style.display='none'; }, 280);
+  if(!window.google || !window.google.accounts){
+    if(typeof toast === 'function') toast('구글 라이브러리 로딩 중... 잠시 후 다시 시도해주세요');
+    return;
   }
-  if(typeof toast === 'function'){
-    toast('구글 로그인 완료');
+  if(!GOOGLE_CLIENT_ID || GOOGLE_CLIENT_ID === 'YOUR_GOOGLE_CLIENT_ID'){
+    if(typeof toast === 'function') toast('구글 클라이언트 ID가 설정되지 않았습니다');
+    return;
   }
+  google.accounts.id.initialize({
+    client_id: GOOGLE_CLIENT_ID,
+    callback: handleGoogleCredential,
+    cancel_on_tap_outside: false
+  });
+  google.accounts.id.prompt(function(notification){
+    if(notification.isNotDisplayed() || notification.isSkippedMoment()){
+      var btn = document.createElement('div');
+      btn.id = 'googleOneTapFallback';
+      btn.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:9999;';
+      document.body.appendChild(btn);
+      google.accounts.id.renderButton(btn, {theme:'outline',size:'large',text:'signin_with',shape:'rectangular',locale:'ko'});
+      btn.querySelector('div[role=button]')&&btn.querySelector('div[role=button]').click();
+    }
+  });
 }
 </script>
 
